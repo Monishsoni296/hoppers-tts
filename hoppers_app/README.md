@@ -1,16 +1,19 @@
-# hoppers_app
+# Hoppers App - Frontend
 
-A new Flutter project.
+The Flutter interface for the Lizard TTS project.
 
-## Getting Started
+## 🛠 Features
+- **Real-time Emoji Detection**: Listens to text input to trigger translations.
+- **Audio Playback**: Uses `audioplayers` to play cached `.mp3` files from Firebase Storage.
+- **Anonymous Auth**: Silently signs in users to allow secure Storage access.
 
-This project is a starting point for a Flutter application.
+## 🏗 Setup
+1. Ensure you have the Flutter SDK installed.
+2. Run `flutter pub get` to install dependencies.
+3. Use `flutterfire configure` to link your local environment to the Firebase project.
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🧪 Testing
+To test with the local emulator:
+```bash
+# Ensure emulators are running in the background
+flutter run -d chrome --web-port=5000
