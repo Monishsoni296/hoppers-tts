@@ -1,9 +1,10 @@
 # Hoppers App - Frontend
 
-The Flutter interface for the Lizard TTS project.
+The Flutter interface for the Text-to-Speech project.
 
 ## 🛠 Features
-- **Real-time Emoji Detection**: Listens to text input to trigger translations.
+- **Asynchronos Queue**: Processes emoji input sequentially via queue to prevent audio overlap.
+- **Play on go**: Listens to text input to trigger audio.
 - **Audio Playback**: Uses `audioplayers` to play cached `.mp3` files from Firebase Storage.
 - **Anonymous Auth**: Silently signs in users to allow secure Storage access.
 

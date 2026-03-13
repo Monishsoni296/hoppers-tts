@@ -1,18 +1,16 @@
-# #hoppers - TTS 🦎 🦫 🪵
+# #hoppers - Text-to-Speech 🦎 🦫 🪵
 
-A Flutter application that translates text (specifically emojis) on go using Google Cloud Text-to-Speech and Firebase Cloud Functions.
+Simple - Fun project | speak typed emojis | GCP Text-to-Speech | Flutter | Firebase
 
-## 🚀 Current Features (v1.0.0)
-- **Real-time TTS**: Triggers a voice response on every character typed.
-- **Emoji Support**: Demojizes emojis to speak their names (e.g., 🦎 becomes "Lizard").
-- **Smart Caching**: Uses Firebase Storage to cache generated `.mp3` files to save API costs and improve speed.
-- **Cross-Platform**: Works on Web and Mobile via Flutter.
-- **Local Emulators**: Pre-configured for local testing with Firebase Emulators.
+## 🚀 Key Updates (v1.1.0)
+minimise API calls | low latency | cost-efficieny
+1. **Local Cache (Hive)**: Instant replay of recently used emojis directly from device storage.
+- **Glocal Cache (Firebase Storage)**: Shared cloud storage for pre-generated audio, reducing the need for repeated API hits.
+- **Synthesis (Google Cloud TTS)**: Final fallback using the en-US-Chirp-HD-F model for high-quality voice generation.
 
 ## 🛠️ Project Structure
 - `/lib`: Flutter frontend code.
 - `/functions`: Python-based Firebase Cloud Functions (Backend).
-- `/.gitignore`: Configured to protect sensitive Firebase config files.
 
 ## ⚙️ Setup Instructions
 
@@ -22,6 +20,6 @@ A Flutter application that translates text (specifically emojis) on go using Goo
 - Python 3.11+ (for functions)
 
 ### 2. Firebase Configuration
-Since `firebase_options.dart` is ignored for security, you must generate it yourself:
 ```bash
+
 flutterfire configure

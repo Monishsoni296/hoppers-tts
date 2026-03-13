@@ -28,7 +28,7 @@ def generate_tts(req: https_fn.CallableRequest) -> dict:
     text_for_filename = text_with_names.replace(' ','_')
     
     # Check Cache (Firebase Storage)
-    bucket = storage.bucket()
+    bucket = storage.bucket("hoppers-489314.appspot.com")
     blob = bucket.blob(f"tts_cache/{text_for_filename}.mp3")
 
     if blob.exists():
