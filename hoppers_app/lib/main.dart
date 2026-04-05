@@ -59,11 +59,16 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   bool _isLoading = false;
+  bool _playingAudio = false;
   bool _isProcessingQueue = false;
-  int _previousLength = 0;
+  bool _isAudioUnlocked = false;
+  String playingText = "type a sentence or an emoji!";
   final AudioPlayer _audioPlayer = AudioPlayer();
-  final TextEditingController _controller = TextEditingController();
-  final Queue<String> _ttsQueue = Queue();
+  final TextEditingController _controllerEmoji = TextEditingController();
+  final TextEditingController _controllerSentence = TextEditingController();
+  final Queue<(int, String)> _ttsQueue = Queue<(int, String)>();
+  final Queue<(String, String)> _playbackQueue = Queue<(String, String)>();
+  final String _silentWavBase64 = 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
 
   @override
   void initState() {
@@ -78,48 +83,87 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     _audioPlayer.dispose();
-    _controller.dispose();
+    _controllerEmoji.dispose();
+    _controllerSentence.dispose();
     super.dispose();
   }
 
-  void _addToQueue(String text) {
-    _ttsQueue.add(text);
+  Future<void> _unlockAudioContext() async {
+    if (_isAudioUnlocked) return;
+    try {
+      await _audioPlayer.play(BytesSource(base64Decode(_silentWavBase64)));
+      setState(() => _isAudioUnlocked = true);
+    } catch (e) {
+      debugPrint('Audio Unlock Error: $e');
+    }
+  }
+
+  void _addToQueue(int ind, String text) {
+    _ttsQueue.add((ind, text));
     if (!_isProcessingQueue) {
       _processQueue();
     }
   }
 
+  void _addToPlaybackQueue(String base64Audio, String text) {
+    _playbackQueue.add((base64Audio, text));
+    if (!_playingAudio) {
+      processPlaybackQueue();
+    }
+  }
+
   Future<void> _processQueue() async {
     _isProcessingQueue = true;
+
     while (_ttsQueue.isNotEmpty) {
-      String text = _ttsQueue.removeFirst();
-      await _callTTSFunction(text);
+      var (ind, text) = _ttsQueue.removeFirst();
+      await _callTTSFunction(ind, text);
     }
+
     _isProcessingQueue = false;
   }
 
-  Future<void> _callTTSFunction(String text) async {
-    setState(() => _isLoading = true);
+  Future<void> processPlaybackQueue() async {
+    _playingAudio = true;
 
-    final box = Hive.box('tts_cache');
-
-    if (box.containsKey(text)) {
-      String base64Audio = box.get(text);
+    while (_playbackQueue.isNotEmpty) {
+      var (base64Audio, text) = _playbackQueue.removeFirst();
       await _audioPlayer.play(BytesSource(base64Decode(base64Audio)));
 
-      // Wait for audio to finish before moving to next character in queue
-      await _audioPlayer.onPlayerStateChanged.firstWhere((s) => s == PlayerState.completed || s == PlayerState.stopped);
-      return;
+      setState(() => playingText = text);
+      await _audioPlayer.onPlayerStateChanged.firstWhere(
+        (s) => s == PlayerState.completed || s == PlayerState.stopped,
+      );
+      setState(() => playingText = 'type a sentence or an emoji!');
+    }
+
+    _playingAudio = false;
+  }
+
+  Future<void> _callTTSFunction(int ind, String text) async {
+    setState(() => _isLoading = true);
+
+    bool emoji = ind == 0; //condition for emoji vs sentence TTS
+    final box = Hive.box('tts_cache');
+
+    if (emoji) {
+      if (box.containsKey(text)) {
+        String base64Audio = box.get(text);
+        _addToPlaybackQueue(base64Audio, text);
+
+        setState(() => _isLoading = false);
+        return;
+      }
     }
 
     try {
-      HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('generate_tts');
+      HttpsCallable callable = FirebaseFunctions.instance.httpsCallable(
+        ind == 0 ? 'generate_tts' : 'sentence_tts',
+      );
       final result = await callable.call({'text': text});
       String base64Audio = result.data['audioContent'];
-      await box.put(text, base64Audio);
-      
-      await _audioPlayer.play(BytesSource(base64Decode(base64Audio)));
-      await _audioPlayer.onPlayerStateChanged.firstWhere((s) => s == PlayerState.completed || s == PlayerState.stopped);
+      _addToPlaybackQueue(base64Audio, text);
+      if (emoji) await box.put(text, base64Audio);
     } catch (e) {
       debugPrint('TTS Error: $e');
       _showErrorPopup(e.toString());
@@ -145,120 +189,165 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void cancelAudio() {
-    _controller.clear();
+    _controllerEmoji.clear();
+    _controllerSentence.clear();
     _ttsQueue.clear();
+    _playbackQueue.clear();
     _audioPlayer.stop();
     setState(() {
       _isLoading = false;
-      _previousLength = 0;
       _isProcessingQueue = false;
+      _playingAudio = false;
     });
   }
 
   @override
 Widget build(BuildContext context) {
-  return Scaffold(
-    body: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFFFFD93D),
-            Color(0xFFFFC107),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-
               /// TITLE
               const Text(
-              "HOPPERS",
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 6,
-                color: Colors.black,
-              ),
+                "HOPPERS",
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 6,
+                  color: Colors.black,
+                ),
               ),
 
               const SizedBox(height: 8),
 
               /// TAGLINE
               const Text(
-              "ACT NATURAL",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 4,
-                color: Colors.black87,
-              ),
+                "ACT NATURAL",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 4,
+                  color: Colors.black87,
+                ),
               ),
 
               const SizedBox(height: 40),
 
               /// MASCOT AREA
               AnimatedScale(
-              scale: _isLoading ? 1.05 : 1.0,
-              duration: const Duration(milliseconds: 300),
-              child: const Text(
-                "🪵🦫",
-                style: TextStyle(fontSize: 40),
-              ),
+                scale: _isLoading ? 1.05 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                child: const Text("🪵🦫", style: TextStyle(fontSize: 40)),
               ),
 
-              const SizedBox(height: 50),
+              const SizedBox(height: 25),
+
+              Text(
+                playingText,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[400],
+                ),
+              ),
+
+              const SizedBox(height: 25),
 
               /// INPUT CARD
-              Container(
-              width: 350,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.yellow[400],
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(width: 2),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 350,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.yellow[400],
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(width: 2),
+                    ),
+                    child: TextField(
+                      controller: _controllerSentence,
+                      onTap: _unlockAudioContext,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 20),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'type a sentence...',
+                        hintStyle: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 70,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.yellow[400],
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(width: 2),
+                    ),
+                    child: TextField(
+                      controller: _controllerEmoji,
+                      onTap: _unlockAudioContext,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 20),
+                      decoration: InputDecoration(border: InputBorder.none),
+                      onChanged: (value) {
+                        if (value.isNotEmpty) {
+                          _addToQueue(0, _controllerEmoji.text.trim());
+                          Future.delayed(
+                            const Duration(milliseconds: 300),
+                          ).whenComplete(() => _controllerEmoji.clear());
+                        }
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: cancelAudio,
+                    icon: const Icon(
+                      Icons.cancel_outlined,
+                      color: Colors.black,
+                    ),
+                  ),
+                  IconButton.filled(
+                    onPressed: () {
+                      String sentence = _controllerSentence.text.trim();
+                      if (sentence.isNotEmpty) _addToQueue(1, sentence);
+                      _controllerSentence.clear();
+                    },
+                    icon: const Icon(Icons.send_sharp, color: Colors.white),
+                  ),
+                ],
               ),
-              child: TextField(
-                controller: _controller,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 20),
-                onChanged: (value) {
-                if (value.isNotEmpty && value.length > _previousLength) {
-                  _addToQueue(value.characters.last);
-                }
-                _previousLength = value.length;
-                },
-                decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "Type something...",
-                hintStyle: const TextStyle(
-                  fontSize: 18,
-                  color: Colors.black54,
-                ),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.black),
-                  onPressed: cancelAudio,
-                ),
-                ),
-              ),
-              ),
+
+              const SizedBox(height: 30),
+
               if (_isLoading) ...[
-              const Text(
-                'loading...',
-                style: TextStyle(fontSize: 16, color: Colors.black54),
-              )
-              ] else ...[
-              const SizedBox(height: 20),
-              ]
-            ]
+                const Text(
+                  'loading...',
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                ),
+              ] else if (_playingAudio) ...[
+                const Text(
+                  'playing audio...',
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                ),
+              ] else if (_ttsQueue.isEmpty && _playbackQueue.isEmpty) ...[
+                const Text(
+                  'ready to hop!',
+                  style: TextStyle(fontSize: 16, color: Colors.black54),
+                ),
+              ],
+            ],
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
