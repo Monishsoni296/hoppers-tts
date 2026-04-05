@@ -2,6 +2,11 @@
 
 Simple - Fun project | speak typed emojis | GCP Text-to-Speech | Flutter | Firebase
 
+## 🚀 Key Updates (v1.2.0)
+- added separate textfield for sentence input.
+- decoupled audioplayback from API call function using queue.
+- fixed audioplayback for browser.
+  
 ## 🚀 Key Updates (v1.1.0)
 minimise API calls | low latency | cost-efficieny
 1. **Local Cache (Hive)**: Instant replay of recently used emojis directly from device storage.
